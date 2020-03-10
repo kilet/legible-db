@@ -1,0 +1,24 @@
+{
+  "name": "legible-db",
+  "version": "1.0.0",
+  "description": "基于egg-mysql 易用的链式数据库查询语句",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kilet/legible-db.git"
+  },
+  "keywords": [
+    "mysql",
+    "legible",
+    "egg"
+  ],
+  "author": "kilet",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kilet/legible-db/issues"
+  },
+  "homepage": "https://github.com/kilet/legible-db#readme"
+}
