@@ -86,6 +86,17 @@ console.log('case h2', Db.table('tbl_a').max('id'))
 console.log('case h3', Db.table('tbl_a').min('id'))
 console.log('case h4', Db.table('tbl_a').avg('id'))
 
+console.log(Db.table('tbl_a')
+   .field('id,a,b')
+   .where({ id: 1 })
+   .where('b=3')
+   .where('c','not like','x')
+   .where({d:[5,6,7]},'not in')
+   .group('a')
+   .page(0,10)
+   .order('id')
+   .select())
+
 console.log("1.若不执行init初始化操作，上述函数可以作为mysql常用语句生成器在任意js语境下使用\n2.配合egg，执行Db.init(app,'dbname') 以设置默认数据库，则select()参数为false时返回生成的语句，否则执行数据库查询操作")
 
 

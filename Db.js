@@ -79,7 +79,20 @@ class Db {
                 this.condition += conds;
 
                 if(interLink !== undefined) {
-                    this.condition += op + interLink;
+                    op = ' ' + op.toLowerCase() + ' ';
+                    if(op.indexOf('like') >= 0){
+                        this.condition += op + "'%"+ interLink + "%'";    
+                    }else if(op.indexOf('between') >= 0){
+                        this.condition += op + interLink[0] + ' AND ' + interLink[1];
+                    }else if(op.indexOf('in') >= 0){
+                        if(typeof interLink == 'string'){
+                            this.condition += op + interLink;
+                        }else{
+                            this.condition += op + interLink.join(',')
+                        }
+                    }else{
+                        this.condition += op + interLink;    
+                    }
                 }else{
                     //允许缺省 '=', 其他操作符不能缺省
                     this.condition += '=' + op ;
@@ -89,7 +102,6 @@ class Db {
             }
         }else if(conds){
             //支持js对象，暂不支持数组
-            op = op || '=';
             interLink = interLink || ' AND ';
             if(this.condition){
                 this.condition += outLink;
@@ -99,34 +111,32 @@ class Db {
                 this.condition += " ("
             }
 
+            op = op?op.toLowerCase():'';
             for(let i = 0;i < keys.length;i++){
                 let val = conds[keys[i]];
                 this.condition += "`"+keys[i] +"`";
-                if(op && op.toLowerCase().indexOf('between') >= 0 ){
+
+                if(op.indexOf('between') >= 0 ){
                     if(val.length == 2){
                         this.condition += ' ' + op + ' ' + val[0] + ' AND ' + val[1];
                     }else{
                         Db.app.logger.info("error: type of 'between must be array of length = 2");
                     }
                 }
-                else if((op && op.toLowerCase().indexOf('in') >= 0) || Array.isArray(val)){
-                    this.condition += ' ' + ((op == '=')?'in':op) + " (";
+                else if(op.indexOf('in') >= 0 || Array.isArray(val)){
+                    this.condition += ' ' + op + " (";
                     if(typeof val == 'string'){
                         this.condition += val;
                     }else{
-                        for(let j = 0;j < val.length;j++){
-                            this.condition += val[j];
-                            if(j<val.length-1){
-                                this.condition += ',';
-                            }
-                        }
+                        console.log('val.concat(',')',val.join(','))
+                        this.condition += val.join(',')
                     }
-
                     this.condition += ')';
-                }else if((op && op.toLowerCase().indexOf('like') >= 0)){
+                    
+                }else if(op.indexOf('like') >= 0){
                     this.condition += " LIKE '%" + val + "%'"
                 }else{
-                    this.condition += op;
+                    this.condition += (op || '=');
                     if(typeof conds[keys[i]] == "number"){
                         this.condition += conds[keys[i]];
                     }else{
@@ -183,6 +193,7 @@ class Db {
             interLink = " OR ";
             op = null;
         }
+
         return this._whereBuild(conds,op,interLink,' AND ');
     }
     field(columns){
