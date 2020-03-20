@@ -19,7 +19,7 @@ class Db {
             this.db = Db.maindb;
         }
         if(Db.app){
-            this.logError = Db.app.logger.info;
+            this.logError = Db.app.logger.error.bind(Db.app.logger);
             this.isPrintLog = Db.app.config.env !== "prod"
         }else{
             this.isPrintLog = true;
@@ -321,13 +321,12 @@ class Db {
             // 重复调用则直接返回
             return this.sqlString;
         }
-        let sql = "SELECT $fields FROM $table $where $group $order $limit";
-        sql = sql.replace("$fields",this._fieldAddDot(fields));
-        sql = sql.replace("$table",this.tablename);
-        sql = sql.replace(" $where",this.condition?' where ' +this.condition:'');
-        sql = sql.replace(" $group",this.groupStr?' group by '+ this.groupStr : '' );
-        sql = sql.replace(" $order",this.orderStr?' order by '+ this.orderStr : '' );
-        sql = sql.replace(" $limit",this.limitStr?' limit ' + this.limitStr : '');
+        // let sql = "SELECT $fields FROM $table $where $group $order $limit";
+        let sql = "SELECT " + this._fieldAddDot(fields) + " FROM " + this.tablename;
+        if(this.condition) sql += ' where ' + this.condition;
+        if(this.groupStr) sql += ' group by ' + this.groupStr;
+        if(this.orderStr) sql += ' order by ' + this.orderStr;
+        if(this.limitStr) sql += ' limit ' + this.limitStr;
         this.sqlString = sql;
         if(addBracket){
             return "(" + sql + ")";
@@ -349,15 +348,12 @@ class Db {
             this.logError("error: update must have dataString");
             return (data === false)?'':false;
         }
-        let sql = "UPDATE $table SET $data $where";
-        sql = sql.replace("$data",this.dataString);
-        sql = sql.replace("$table",this.tablename);
+
+        let sql = "UPDATE " + this.tablename + " SET " + this.dataString + " $where";
         if(!this.condition && this.dataid){
-            sql = sql.replace("$where",'where `id`='+this.dataid);
-            this.sqlString = sql;
+            this.sqlString = sql + ' where `id`='+ this.dataid;
         }else if(this.condition){
-            sql = sql.replace("$where",' where ' +this.condition);
-            this.sqlString = sql;
+            this.sqlString = sql + ' where ' + this.condition;
         }else{
             Db.app.logger.info("error: update must have where condition");
             this.sqlString = "";
@@ -381,13 +377,10 @@ class Db {
             this.logError("error: update must have dataString");
             return (data === false)?'':false;
         }
-        let sql = "INSERT INTO $table SET $data $where ";
-        sql = sql.replace("$data",this.dataString);
-        sql = sql.replace("$table",this.tablename);
-        if(!this.condition && this.dataid){
-            sql = sql.replace("$where",'where `id`='+this.dataid);
-        }else{
-            sql = sql.replace("$where",this.condition?' where ' +this.condition:'');
+
+        let sql = "INSERT INTO " + this.tablename + ' SET ' + this.dataString;
+        if(this.condition){
+            sql += ' where ' + this.condition;
         }
 
         this.sqlString = sql;
@@ -400,12 +393,10 @@ class Db {
         }
     }
     delete(where){
-        let sql = "DELETE FROM $table $where ";
         if(where){
             this.where(where);
         }
-        sql = sql.replace("$table",this.tablename);
-        sql = sql.replace("$where",' where ' + this.condition);
+        let sql = "DELETE FROM " + this.tablename + ' where ' + this.condition;
         this.sqlString = sql;
         if(where === false || !this.db){
             return this.sqlString;
