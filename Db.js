@@ -349,7 +349,7 @@ class Db {
             return (data === false)?'':false;
         }
 
-        let sql = "UPDATE " + this.tablename + " SET " + this.dataString + " $where";
+        let sql = "UPDATE " + this.tablename + " SET " + this.dataString;
         if(!this.condition && this.dataid){
             this.sqlString = sql + ' where `id`='+ this.dataid;
         }else if(this.condition){
