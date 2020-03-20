@@ -19,7 +19,7 @@ class Db {
             this.db = Db.maindb;
         }
         if(Db.app){
-            this.logError = Db.app.logger;
+            this.logError = Db.app.logger.info;
             this.isPrintLog = Db.app.config.env !== "prod"
         }else{
             this.isPrintLog = true;
@@ -43,14 +43,14 @@ class Db {
                 db = null;
                 return new Db(name);
             }else{
-                return new Db(name,db);    
+                return new Db(name,db);
             }
         }else{
             //sub string;
             return new Db( name.toSubQuery(),db);
         }
     }
-    
+
     static getLastSql(){
         return Db.lastSqlString;
     }
@@ -81,7 +81,7 @@ class Db {
                 if(interLink !== undefined) {
                     op = ' ' + op.toLowerCase() + ' ';
                     if(op.indexOf('like') >= 0){
-                        this.condition += op + "'%"+ interLink + "%'";    
+                        this.condition += op + "'%"+ interLink + "%'";
                     }else if(op.indexOf('between') >= 0){
                         this.condition += op + interLink[0] + ' AND ' + interLink[1];
                     }else if(op.indexOf('in') >= 0){
@@ -91,7 +91,7 @@ class Db {
                             this.condition += op + interLink.join(',')
                         }
                     }else{
-                        this.condition += op + interLink;    
+                        this.condition += op + interLink;
                     }
                 }else{
                     //允许缺省 '=', 其他操作符不能缺省
@@ -132,7 +132,7 @@ class Db {
                         this.condition += val.join(',')
                     }
                     this.condition += ')';
-                    
+
                 }else if(op.indexOf('like') >= 0){
                     this.condition += " LIKE '%" + val + "%'"
                 }else{
@@ -279,6 +279,12 @@ class Db {
         }
         return this.data(updata);
     }
+    json(key,json){
+        let tmp = {};
+        //回车符会导致数据库报错
+        tmp[key] = JSON.stringify(json).replace(/\\n/g,'\\\\n');
+        return this.data(tmp);
+    }
     data(data){
         if(!data){
             return this;
@@ -296,7 +302,7 @@ class Db {
                 if(keys[i] == 'id')
                     continue;
                 let val = data[keys[i]];
-                this.dataString += "`"+keys[i] +"`=" ;
+                this.dataString += (this.dataString ? ",`" : "`") + keys[i] +"`=" ;
                 if(typeof val == "number"){
                     this.dataString += val;
                 }else if(typeof val == "string" && val.length > 1 && (val.indexOf('+')==0 || val.indexOf('-')==0 || val.indexOf('=')==0)){
@@ -304,9 +310,6 @@ class Db {
                     this.dataString += "`"+keys[i] +"`"+ val;
                 }else{
                     this.dataString += "'" + val + "'";
-                }
-                if(i < keys.length -1){
-                    this.dataString += ",";
                 }
             }
         }
@@ -413,7 +416,7 @@ class Db {
         }
     }
 
-    
+
     _staticalSql(key,oprate,buildOnly){
         if(!key){
             Db.app.logger.info("error: statical sql key is null");
@@ -526,7 +529,7 @@ class Db {
             await conn.rollback(); // 一定记得捕获异常后回滚事务！！
             // throw err;
             result = err;
-            this.logError(err,debugInfo);
+            Db.app.logger.error(err,debugInfo);
         }
 
         return result;
