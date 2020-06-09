@@ -20,5 +20,8 @@
   "bugs": {
     "url": "https://github.com/kilet/legible-db/issues"
   },
-  "homepage": "https://github.com/kilet/legible-db#readme"
+  "homepage": "https://github.com/kilet/legible-db#readme",
+  "dependencies": {
+    "moment": "^2.26.0"
+  }
 }

@@ -62,3 +62,11 @@ module.exports = app => {
 执行 await Db.table('tbl_a').select() 返回查询的数据 
 
 update,insert,delte类似
+
+封装常用时间条件：
+whereTime()
+参数
+key：数据库表字段名
+tm1：（1）可以是特殊字符串时【tm2：表示偏移量，缺省为0】，可以为'today'，'yesterday','tomorrow','week','month','year','lastWeek','lastMonth','lastYear'
+	 （2）可以是YYYY-MM-DD 的时间格式
+	 （3）可以是时间戳值，【tm2：若tm2有值表示两个时间戳所指定的日期之间】

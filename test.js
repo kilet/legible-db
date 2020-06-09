@@ -97,6 +97,45 @@ console.log(Db.table('tbl_a')
    .order('id')
    .select())
 
+console.log(Db.table('tbl_t2')
+   .whereTime('createTime','today')
+   .select())
+
+console.log(Db.table('tbl_t3')
+   .whereTime('createTime','yesterday')
+   .select())
+
+console.log(Db.table('tbl_t4')
+   .whereTime('createTime','tomorrow')
+   .select())
+console.log(Db.table('tbl_t5')
+   .whereTime('createTime','week','')
+   .select())
+
+console.log(Db.table('tbl_t6')
+   .whereTime('createTime','month')
+   .select())
+
+console.log(Db.table('tbl_t7')
+   .whereTime('createTime','quarter')
+   .select())
+
+console.log(Db.table('tbl_t7')
+   .whereTime('createTime','year')
+   .select())
+
+console.log(Db.table('tbl_t8')
+   .whereTime('createTime',1591681442)
+   .select())
+
+console.log(Db.table('tbl_t9')
+   .whereTime('createTime',1591681442,1551681442)
+   .select())
+
+console.log(Db.table('tbl_t10')
+   .whereTime('createTime',20200609)
+   .select())
+
 console.log("1.若不执行init初始化操作，上述函数可以作为mysql常用语句生成器在任意js语境下使用\n2.配合egg，执行Db.init(app,'dbname') 以设置默认数据库，则select()参数为false时返回生成的语句，否则执行数据库查询操作")
 
 

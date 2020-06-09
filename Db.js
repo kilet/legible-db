@@ -1,5 +1,6 @@
 'use strict';
 //用于生成sql 语句
+const moment = require('moment');
 class Db {
     // mysql
     constructor(name,db){
@@ -19,11 +20,18 @@ class Db {
             this.db = Db.maindb;
         }
         if(Db.app){
-            this.logError = Db.app.logger.error.bind(Db.app.logger);
             this.isPrintLog = Db.app.config.env !== "prod"
         }else{
             this.isPrintLog = true;
-            this.logError = console.log;
+        }
+        //默认为空
+        this.logger = {
+            info:function () {
+                console.log(...arguments)
+            },
+            error:function () {
+                console.log(...arguments)
+            }
         }
     }
     //在 app.js 调用，进行类初始化
@@ -53,6 +61,12 @@ class Db {
 
     static getLastSql(){
         return Db.lastSqlString;
+    }
+
+    setLogger(logger){
+        if(logger){
+            this.logger = logger;
+        }
     }
 
     toSubQuery(alias){
@@ -120,7 +134,7 @@ class Db {
                     if(val.length == 2){
                         this.condition += ' ' + op + ' ' + val[0] + ' AND ' + val[1];
                     }else{
-                        Db.app.logger.info("error: type of 'between must be array of length = 2");
+                        this.logger.info("error: type of 'between must be array of length = 2");
                     }
                 }
                 else if(op.indexOf('in') >= 0 || Array.isArray(val)){
@@ -128,8 +142,13 @@ class Db {
                     if(typeof val == 'string'){
                         this.condition += val;
                     }else{
-                        console.log('val.concat(',')',val.join(','))
-                        this.condition += val.join(',')
+                        if(typeof val[0] == 'string'){
+                            this.condition += "'"
+                            this.condition += val.join("','")
+                            this.condition += "'"
+                        }else{
+                            this.condition += val.join(',')
+                        }
                     }
                     this.condition += ')';
 
@@ -196,6 +215,125 @@ class Db {
 
         return this._whereBuild(conds,op,interLink,' AND ');
     }
+
+    _momOfCategory(category,offset) {
+        // category = week,month,quarter
+        let start = 0,end = 0;
+        if(offset){
+            let mom = moment()[category];
+            switch (category) {
+                case 'week':
+                    start = moment().week(moment().week() + offset).startOf('week')
+                    end = moment().week(moment().week() + offset).endOf('week')
+                    break;
+                case 'month':
+                    start = moment().month(moment().month() + offset).startOf('month')
+                    end = moment().month(moment().month() + offset).endOf('month')
+                    break;
+                case 'quarter':
+                    start = moment().quarter(moment().quarter() + offset).startOf('quarter')
+                    end = moment().quarter(moment().quarter() + offset).endOf('quarter')
+                    break;
+                case 'year':
+                    start = moment().year(moment().year() + offset).startOf('year')
+                    end = moment().year(moment().year() + offset).endOf('year')
+                    break;
+            }
+        }else{
+            start = moment().startOf(category)
+            end = moment().endOf(category)
+        }
+        return {start:start.valueOf()/1000,end:Math.floor(end.valueOf()/1000)}
+    }
+
+    // 时间戳单位：秒
+    whereTime(key,tm1,tm2){
+        let cond = '';
+        if(typeof tm1 == 'string'){
+            let offset = parseInt(tm2 || 0);;
+            let category = '';
+            switch (tm1) {
+                case 'today':
+                    category = 'days';
+                    break;
+                case 'yesterday':
+                    category = 'days';offset --;
+                    break;
+                case "tomorrow":
+                    category = 'days';offset ++;
+                    break;
+                case 'week':
+                case 'month':
+                case 'quarter':
+                case 'year':
+                    category = tm1;
+                    offset = parseInt(tm2 || 0);
+                    break;
+                case 'lastWeek':
+                    category = 'week';offset = -1;
+                    break;
+                case 'lastMonth':
+                    category = 'month';offset = -1;
+                    break;
+                case 'lastQuarter':
+                    category = 'quarter';offset = -1;
+                    break;
+                case 'lastYear':
+                    category = 'year';offset = -1;
+                    break;
+                default:
+                    if(tm1.indexOf('-') > 0){// 判断为时间格式：YYYY-MM-DD
+                        cond = "FROM_UNIXTIME(" + key + ",'%Y-%m-%d') = '" + tm + "'";    
+                    }else{
+                        console.log("db whereTime invalid params:",key,tm1);
+                        return null;
+                    }
+            }
+
+            if(category == 'days'){
+                cond = "FROM_UNIXTIME(" + key + ",'%Y-%m-%d') =" + moment().add(offset, 'days').format("'YYYY-MM-DD'");
+            }else if(category){
+                const {start,end} = this._momOfCategory(category,offset);
+                cond = `(${key} >= ${start} and ${key} <= ${end})`    
+            }
+            // this.condition
+            
+        }else if(tm1 && !tm2){
+            if (tm1 > 100000000) {// 可以判断为秒数或者毫秒
+                if(tm1 > (Date.now()/100)){//根据数量级判断为毫秒
+                    cond = "FROM_UNIXTIME(" + key + ",'%Y-%m-%d') =" + moment(tm1).format("'YYYY-MM-DD'");
+                }else{
+                    cond = "FROM_UNIXTIME(" + key + ",'%Y-%m-%d') =" + moment(tm1 * 1000).format("'YYYY-MM-DD'");    
+                }
+            } else if(tm1 < 366){//以当天为基准的日期偏移
+                cond = "FROM_UNIXTIME(" + key + ",'%Y-%m-%d') =" + moment().add(tm1, 'days').format("'YYYY-MM-DD'");
+            } else {//判断为年月日
+                cond = "FROM_UNIXTIME(" + key + ",'%Y%m%d') = '" + tm1 + "'";
+            }
+        }else if(tm2){//判断为日期中间
+            if(!tm1){
+                tm1 = Date.now();//从当前时间开始
+            }else{
+                tm1 = (tm1 > (Date.now()/100))?tm1:(tm1*1000)//秒转换为毫秒
+            }
+            tm2 = (tm2 > (Date.now()/100))?tm2:(tm2*1000)//秒转换为毫秒
+
+            let start = moment(tm1).startOf('days').valueOf()/1000;
+            let end = Math.floor(moment(tm2).endOf('days').valueOf()/1000);
+
+            cond = `(${key} >= ${start} and ${key} <= ${end})`;
+        }else{//不设置之间参数，这表示今天
+            console.log("db whereTime invalid params: tm1 is null");
+            return null;
+        }
+        if(this.condition){
+            this.condition += ' AND ' + cond;
+        }else{
+            this.condition += cond;
+        }
+        return this;
+    }
+    
     field(columns){
         this.sqlString = '';
         if(typeof columns == "string"){
@@ -236,6 +374,7 @@ class Db {
         this.groupStr = key ||"";
         return this;
     }
+    // 判断并添加点号,以避免因数据库关键字的错误
     _fieldAddDot(fields){
         fields = fields || this.columns || '';
         if(fields){
@@ -321,15 +460,14 @@ class Db {
             // 重复调用则直接返回
             return this.sqlString;
         }
-        // let sql = "SELECT $fields FROM $table $where $group $order $limit";
-        let sql = "SELECT " + this._fieldAddDot(fields) + " FROM " + this.tablename;
-        if(this.condition) sql += ' where ' + this.condition;
-        if(this.groupStr) sql += ' group by ' + this.groupStr;
-        if(this.orderStr) sql += ' order by ' + this.orderStr;
-        if(this.limitStr) sql += ' limit ' + this.limitStr;
-        this.sqlString = sql;
+
+        this.sqlString = "SELECT " + this._fieldAddDot(fields) + " FROM " + this.tablename;
+        if(this.condition) this.sqlString += ' where ' + this.condition;
+        if(this.groupStr) this.sqlString += ' group by ' + this.groupStr;
+        if(this.orderStr) this.sqlString += ' order by ' + this.orderStr;
+        if(this.limitStr) this.sqlString += ' limit ' + this.limitStr;
         if(addBracket){
-            return "(" + sql + ")";
+            return "(" + this.sqlString + ")";
         }
         if(fields === false || !this.db){
             return this.sqlString;
@@ -345,21 +483,21 @@ class Db {
             this.data(data);
         }
         if(!this.dataString){
-            this.logError("error: update must have dataString");
+            this.logger.error("error: update must have dataString");
             return (data === false)?'':false;
         }
 
-        let sql = "UPDATE " + this.tablename + " SET " + this.dataString;
+        this.sqlString = "UPDATE " + this.tablename + " SET " + this.dataString;
+
         if(!this.condition && this.dataid){
-            this.sqlString = sql + ' where `id`='+ this.dataid;
+            this.sqlString += ' where `id`='+ this.dataid;
         }else if(this.condition){
-            this.sqlString = sql + ' where ' + this.condition;
+            this.sqlString += ' where ' + this.condition;
         }else{
-            Db.app.logger.info("error: update must have where condition");
+            this.logger.info("error: update must have where condition");
             this.sqlString = "";
         }
 
-        this.sqlString = sql;
         if(data === false || !this.db){
             return this.sqlString;
         }else{
@@ -374,16 +512,15 @@ class Db {
             this.data(data);
         }
         if(!this.dataString){
-            this.logError("error: update must have dataString");
+            this.logger.error("error: update must have dataString");
             return (data === false)?'':false;
         }
 
-        let sql = "INSERT INTO " + this.tablename + ' SET ' + this.dataString;
+        this.sqlString = "INSERT INTO " + this.tablename + ' SET ' + this.dataString;
         if(this.condition){
-            sql += ' where ' + this.condition;
+            this.sqlString += ' where ' + this.condition;
         }
 
-        this.sqlString = sql;
         if(data === false || !this.db){
             return this.sqlString;
         }else{
@@ -396,8 +533,7 @@ class Db {
         if(where){
             this.where(where);
         }
-        let sql = "DELETE FROM " + this.tablename + ' where ' + this.condition;
-        this.sqlString = sql;
+        this.sqlString = "DELETE FROM " + this.tablename + ' where ' + this.condition;
         if(where === false || !this.db){
             return this.sqlString;
         }else{
@@ -408,18 +544,18 @@ class Db {
     }
 
 
-    _staticalSql(key,oprate,buildOnly){
+    _staticalSql(key,operate,buildOnly){
         if(!key){
-            Db.app.logger.info("error: statical sql key is null");
+            this.logger.info("error: statical sql key is null,operate=",operate);
             return this;
         }
-        let statical = "$oprate(`$key`) as `$target`";
-        statical = statical.replace("$oprate",oprate)
-            .replace("$target",oprate);
+        let statical = "$operate($key) as `$target`";
+        statical = statical.replace("$operate",operate)
+            .replace("$target",operate);
         if(key != 1){
             statical = statical.replace("$key",key)
         }else{
-            statical = statical.replace("`$key`",'1')
+            statical = statical.replace("$key",'1')
         }
 
         let sql = "SELECT $statical FROM $table $where $group ";
@@ -443,9 +579,8 @@ class Db {
             return this.sqlString;
         }
         return new Promise(async (resolve, reject) => {
-            let result = await this.query();
-            let value = result? (result[0][oprate]||0):0;
-            resolve(value);
+            const result = await this.query();
+            resolve(result[0][operate] || 0);
         })
     }
     //需要配合，query使用
@@ -469,28 +604,25 @@ class Db {
         //this.app.db 为默认连接数据库
         sql = sql || this.sqlString;
         if(!sql){
-            this.logError("no sql need to query");
+            this.logger.error("no sql need to query");
             return null;
         }
         try{
             if(this.isPrintLog){
-                console.log("exec sql begin>>:",sql);
+                this.logger.info("exec sql begin>>:",sql);
             }
 
             // 数据库执行
             const result = await this.db.query(sql);
 
-            if (this.isPrintLog ) {
-                console.log("exec sql end>>:",result.length > 0?result[0]:result);
-            }
+            // if (this.isPrintLog ) {
+            //     console.log("exec sql end>>:",result.length > 0?result[0]:result);
+            // }
             Db.lastSqlString = this.sqlString;
             this.statical = "";
             return result
         }catch (e) {
-            if(this.isPrintLog){
-                console.log("==== db error:",e.message,' sql:',e.sql);
-            }
-            this.logError("==== db error:",e.message,' sql:',e.sql);
+            this.logger.error("==== db error:",e.message,' sql:',e.sql);
         }
     }
 
