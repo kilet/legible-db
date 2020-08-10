@@ -424,7 +424,7 @@ class Db {
         tmp[key] = JSON.stringify(json).replace(/\\n/g,'\\\\n');
         return this.data(tmp);
     }
-    data(data){
+    data(data,action){
         if(!data){
             return this;
         }
@@ -435,7 +435,10 @@ class Db {
             this.dataString += data;
         }
         else if(data){
-            this.dataid = data.id;//自动根据id，进行更新
+            if(action != 'insert'){
+                this.dataid = data.id;//自动根据id，进行更新    
+            }
+            
             let keys = Object.keys(data);
             for(let i = 0;i < keys.length;i++){
                 if(keys[i] == 'id')
@@ -509,7 +512,7 @@ class Db {
 
     insert(data){
         if(data){
-            this.data(data);
+            this.data(data,'insert');
         }
         if(!this.dataString){
             this.logger.error("error: update must have dataString");
