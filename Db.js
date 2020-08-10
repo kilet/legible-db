@@ -441,7 +441,7 @@ class Db {
             
             let keys = Object.keys(data);
             for(let i = 0;i < keys.length;i++){
-                if(keys[i] == 'id')
+                if(keys[i] == 'id' && action != 'insert')
                     continue;
                 let val = data[keys[i]];
                 this.dataString += (this.dataString ? ",`" : "`") + keys[i] +"`=" ;
